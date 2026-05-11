@@ -1,9 +1,13 @@
 import request from 'supertest';
+import { newDb } from 'pg-mem';
 import { createApp } from '../src/app';
-import { InMemoryTemplateRepository } from '../src/infrastructure/persistence/in-memory-repository';
+import { PgMemTemplateRepository, initSchema, createPool } from '../src/infrastructure/persistence/pg-mem-repository';
 
 function buildApp() {
-  const repository = new InMemoryTemplateRepository();
+  const db = newDb();
+  initSchema(db);
+  const pool = createPool(db);
+  const repository = new PgMemTemplateRepository(pool);
   const app = createApp(repository);
   return { app, repository };
 }
