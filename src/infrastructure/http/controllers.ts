@@ -1,9 +1,32 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { CreateTemplate } from '../../application/create-template';
 import { GetTemplate } from '../../application/get-template';
 import { ListTemplates } from '../../application/list-templates';
 import { UpdateTemplate } from '../../application/update-template';
 import { RenderTemplate } from '../../application/render-template';
+
+const VariableDeclarationSchema = z.object({
+  name: z.string(),
+  default: z.string().optional(),
+});
+
+const CreateTemplateBody = z.object({
+  name: z.string().min(1),
+  content: z.string().min(1),
+  tags: z.array(z.string()).optional(),
+  variables: z.array(VariableDeclarationSchema).optional(),
+});
+
+const UpdateTemplateBody = z.object({
+  content: z.string().min(1),
+  variables: z.array(VariableDeclarationSchema).optional(),
+});
+
+const RenderTemplateBody = z.object({
+  version: z.number().int().positive().optional(),
+  variables: z.record(z.string(), z.string()).optional(),
+});
 
 function formatTemplateResponse(result: { template: { id: string; name: string; tags: string[]; createdAt: Date }; version: { id: string; version: number; content: string; variables: unknown[]; createdAt: Date } }) {
   return {
@@ -23,17 +46,13 @@ function formatTemplateResponse(result: { template: { id: string; name: string; 
 
 export function createTemplateController(useCase: CreateTemplate) {
   return async (req: Request, res: Response): Promise<void> => {
-    const { name, tags, content, variables } = req.body;
-
-    if (!name || typeof name !== 'string') {
-      res.status(400).json({ error: 'name is required' });
-      return;
-    }
-    if (!content || typeof content !== 'string') {
-      res.status(400).json({ error: 'content is required' });
+    const parsed = CreateTemplateBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
 
+    const { name, tags, content, variables } = parsed.data;
     const result = await useCase.execute({ name, tags, content, variables });
     res.status(201).json(formatTemplateResponse(result));
   };
@@ -82,13 +101,13 @@ export function listTemplatesController(useCase: ListTemplates) {
 export function updateTemplateController(useCase: UpdateTemplate) {
   return async (req: Request, res: Response): Promise<void> => {
     const id = req.params.id as string;
-    const { content, variables } = req.body;
-
-    if (!content || typeof content !== 'string') {
-      res.status(400).json({ error: 'content is required' });
+    const parsed = UpdateTemplateBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
 
+    const { content, variables } = parsed.data;
     const result = await useCase.execute(id, { content, variables });
     if (!result) {
       res.status(404).json({ error: 'Template not found' });
@@ -102,7 +121,12 @@ export function updateTemplateController(useCase: UpdateTemplate) {
 export function renderTemplateController(useCase: RenderTemplate) {
   return async (req: Request, res: Response): Promise<void> => {
     const id = req.params.id as string;
-    const { version, variables } = req.body;
+    const parsed = RenderTemplateBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0].message });
+      return;
+    }
+    const { version, variables } = parsed.data;
 
     const result = await useCase.execute(id, {
       version,
