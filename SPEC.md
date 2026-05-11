@@ -95,4 +95,5 @@ Why this architecture?
 3.  Future-Proof: Swapping the persistence layer (e.g., moving from in-memory to
     PostgreSQL) only requires writing a new adapter in the Infrastructure layer.
     The core logic remains untouched.
+```
 
