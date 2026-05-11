@@ -28,6 +28,12 @@ const RenderTemplateBody = z.object({
   variables: z.record(z.string(), z.string()).optional(),
 });
 
+function formatZodError(error: z.ZodError): string {
+  const issue = error.issues[0];
+  const field = issue.path.join('.');
+  return field ? `${field} is required` : issue.message;
+}
+
 function formatTemplateResponse(result: { template: { id: string; name: string; tags: string[]; createdAt: Date }; version: { id: string; version: number; content: string; variables: unknown[]; createdAt: Date } }) {
   return {
     id: result.template.id,
@@ -48,7 +54,7 @@ export function createTemplateController(useCase: CreateTemplate) {
   return async (req: Request, res: Response): Promise<void> => {
     const parsed = CreateTemplateBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.issues[0].message });
+      res.status(400).json({ error: formatZodError(parsed.error) });
       return;
     }
 
@@ -103,7 +109,7 @@ export function updateTemplateController(useCase: UpdateTemplate) {
     const id = req.params.id as string;
     const parsed = UpdateTemplateBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.issues[0].message });
+      res.status(400).json({ error: formatZodError(parsed.error) });
       return;
     }
 
@@ -123,7 +129,7 @@ export function renderTemplateController(useCase: RenderTemplate) {
     const id = req.params.id as string;
     const parsed = RenderTemplateBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.issues[0].message });
+      res.status(400).json({ error: formatZodError(parsed.error) });
       return;
     }
     const { version, variables } = parsed.data;
